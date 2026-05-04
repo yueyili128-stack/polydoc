@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PolyDoc — One pipeline. Every document. Any modality.</title>
+<meta name="description" content="PolyDoc: end-to-end multimodal RAG and document extraction pipeline. Ingest PDFs, Office docs, audio, video, and web pages into a hybrid vector store." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-0: #0a0a0f;
+    --bg-1: #0f0f1a;
+    --bg-2: #15152a;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-hi: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hi: rgba(255, 255, 255, 0.16);
+    --text: #e8e8f0;
+    --text-mute: #9090a8;
+    --text-dim: #5a5a72;
+    --accent-1: #7c3aed;   /* purple */
+    --accent-2: #06b6d4;   /* cyan */
+    --accent-3: #f59e0b;   /* amber */
+    --accent-4: #ec4899;   /* pink */
+    --gradient: linear-gradient(135deg, #7c3aed 0%, #06b6d4 50%, #ec4899 100%);
+    --gradient-soft: linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(6,182,212,0.15) 100%);
+    --shadow-glow: 0 0 80px rgba(124, 58, 237, 0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-0);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Animated background blobs */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -20%;
+    left: -10%;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 60%);
+    filter: blur(80px);
+    z-index: -1;
+    animation: floatA 20s ease-in-out infinite;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    right: -10%;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 60%);
+    filter: blur(80px);
+    z-index: -1;
+    animation: floatB 25s ease-in-out infinite;
+  }
+  @keyframes floatA {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(5vw, 5vh); }
+  }
+  @keyframes floatB {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-5vw, -5vh); }
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ─── Navbar ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(10, 10, 15, 0.7);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+  }
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--gradient);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: white;
+  }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    align-items: center;
+  }
+  .nav-links a {
+    color: var(--text-mute);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    background: var(--text);
+    color: var(--bg-0) !important;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: transform 0.2s;
+  }
+  .nav-cta:hover { transform: translateY(-1px); }
+
+  /* ─── Hero ─── */
+  .hero {
+    padding: 120px 0 80px;
+    text-align: center;
+    position: relative;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text-mute);
+    margin-bottom: 28px;
+  }
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  h1 {
+    font-size: clamp(40px, 7vw, 80px);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin-bottom: 24px;
+  }
+  h1 .grad {
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .lede {
+    font-size: clamp(16px, 1.6vw, 20px);
+    color: var(--text-mute);
+    max-width: 680px;
+    margin: 0 auto 40px;
+  }
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--text);
+    color: var(--bg-0);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+  }
+  .btn-ghost {
+    color: var(--text);
+    border-color: var(--border-hi);
+    background: var(--surface);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-hi);
+  }
+
+  /* Trusted-by row */
+  .trust {
+    margin-top: 80px;
+    text-align: center;
+  }
+  .trust-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 24px;
+  }
+  .trust-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    color: var(--text-mute);
+    font-weight: 500;
+    font-size: 15px;
+  }
+  .trust-row span {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .trust-row span:hover { opacity: 1; }
+
+  /* ─── Sections ─── */
+  section {
+    padding: 100px 0;
+  }
+  .section-label {
+    display: inline-block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent-2);
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: clamp(32px, 4vw, 48px);
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    max-width: 720px;
+  }
+  .section-sub {
+    font-size: 17px;
+    color: var(--text-mute);
+    max-width: 640px;
+    margin-bottom: 56px;
+  }
+
+  /* ─── Features grid ─── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .feature {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-soft);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .feature:hover {
+    border-color: var(--border-hi);
+    transform: translateY(-4px);
+  }
+  .feature:hover::before { opacity: 1; }
+  .feature-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--surface-hi);
+    border: 1px solid var(--border-hi);
+    display: grid;
+    place-items: center;
+    margin-bottom: 18px;
+    font-size: 22px;
+    position: relative;
+    z-index: 1;
+  }
+  .feature h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .feature p {
+    font-size: 14px;
+    color: var(--text-mute);
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── Pipeline ─── */
+  .pipeline {
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .pipe-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 48px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .pipe-row { grid-template-columns: 1fr; }
+  }
+  .pipe-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 20px;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .pipe-step:hover {
+    border-color: var(--accent-2);
+    transform: translateY(-2px);
+  }
+  .pipe-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-2);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .pipe-step h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .pipe-step p {
+    font-size: 13px;
+    color: var(--text-mute);
+    line-height: 1.5;
+  }
+  .pipe-step .icon {
+    font-size: 24px;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  /* ─── Code section ─── */
+  .code-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 60px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .code-grid { grid-template-columns: 1fr; gap: 40px; }
+  }
+  .code-grid h2 { margin-bottom: 16px; }
+  .code-grid p { color: var(--text-mute); font-size: 16px; margin-bottom: 24px; }
+  .code-grid ul {
+    list-style: none;
+    margin-top: 24px;
+  }
+  .code-grid ul li {
+    padding: 10px 0;
+    color: var(--text-mute);
+    border-bottom: 1px dashed var(--border);
+    font-size: 14px;
+    display: flex;
+    gap: 10px;
+  }
+  .code-grid ul li::before {
+    content: '→';
+    color: var(--accent-2);
+    font-weight: 700;
+  }
+  .code-block {
+    background: #07070d;
+    border: 1px solid var(--border-hi);
+    border-radius: 14px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    box-shadow: var(--shadow-glow);
+  }
+  .code-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .code-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .code-dot:nth-child(1) { background: #ff5f57; }
+  .code-dot:nth-child(2) { background: #ffbd2e; }
+  .code-dot:nth-child(3) { background: #28c941; }
+  .code-title {
+    margin-left: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .code-body { padding: 20px; overflow-x: auto; }
+  .code-body code { color: var(--text); white-space: pre; }
+  .tk-cmt { color: #5a5a72; }
+  .tk-key { color: #c084fc; }
+  .tk-str { color: #fbbf24; }
+  .tk-fn  { color: #06b6d4; }
+  .tk-flag { color: #f87171; }
+
+  /* ─── Stats ─── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 42px;
+    font-weight: 800;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── File types ─── */
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 32px;
+  }
+  .format-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-mute);
+    transition: all 0.2s;
+  }
+  .format-pill:hover {
+    background: var(--surface-hi);
+    border-color: var(--accent-2);
+    color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  /* ─── CTA ─── */
+  .cta-card {
+    background: var(--gradient);
+    border-radius: 24px;
+    padding: 60px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 50%);
+    pointer-events: none;
+  }
+  .cta-card h2 {
+    color: white;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+  .cta-card p {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 17px;
+    max-width: 540px;
+    margin: 0 auto 32px;
+  }
+  .cta-card .btn-primary {
+    background: white;
+    color: #1a0c2e;
+  }
+  .cta-card .btn-primary:hover {
+    background: #f8f8f8;
+  }
+
+  /* ─── Footer ─── */
+  footer {
+    padding: 60px 0 40px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 720px) {
+    .foot-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .foot-col h5 {
+    color: var(--text);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+  .foot-col a {
+    display: block;
+    color: var(--text-mute);
+    text-decoration: none;
+    padding: 4px 0;
+    transition: color 0.2s;
+  }
+  .foot-col a:hover { color: var(--text); }
+  .foot-bottom {
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* Reveal-on-scroll */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="logo">
+      <div class="logo-mark">P</div>
+      <span>PolyDoc</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#docs">Docs</a>
+      <a href="#" class="nav-cta">Get Started →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── HERO ─── -->
+<header class="hero container">
+  <span class="badge"><span class="badge-dot"></span> v1.2.2 — Apache 2.0</span>
+  <h1>One pipeline.<br/>Every document.<br/><span class="grad">Any modality.</span></h1>
+  <p class="lede">
+    PolyDoc turns the messy reality of enterprise data — PDFs, slides, spreadsheets, emails, audio, video, and web pages — into a clean, searchable, RAG-ready knowledge base.
+  </p>
+  <div class="cta-row">
+    <a href="#quickstart" class="btn btn-primary">Get started in 60s →</a>
+    <a href="#features" class="btn btn-ghost">Explore features</a>
+  </div>
+
+  <div class="trust">
+    <p class="trust-label">Built on the open-source AI stack</p>
+    <div class="trust-row">
+      <span>PyTorch</span>
+      <span>Milvus</span>
+      <span>LangChain</span>
+      <span>FastAPI</span>
+      <span>Dask</span>
+      <span>Hugging Face</span>
+    </div>
+  </div>
+</header>
+
+<!-- ─── STATS ─── -->
+<section class="container reveal">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">17+</div>
+      <div class="stat-label">File formats</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">8</div>
+      <div class="stat-label">LLM backends</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">3</div>
+      <div class="stat-label">PDF strategies</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Open source</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES ─── -->
+<section id="features" class="container reveal">
+  <span class="section-label">Why PolyDoc</span>
+  <h2 class="section-title">Everything you need to build serious RAG.</h2>
+  <p class="section-sub">No more glue code between five different libraries. PolyDoc is one cohesive pipeline from raw bytes to grounded answers.</p>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">◉</div>
+      <h3>Massively multimodal</h3>
+      <p>One unified <code style="color:var(--accent-2)">MultimodalSample</code> format handles text, images, audio, video, and tables — same API for every input.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Distributed by default</h3>
+      <p>Built on Dask plus PyTorch multiprocessing. Scale from your laptop to a multi-GPU cluster without changing a line of code.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">◇</div>
+      <h3>Hybrid retrieval</h3>
+      <p>Dense embeddings, SPLADE sparse, and ColPali visual retrieval — use one or stack them all in a single Milvus query.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚙︎</div>
+      <h3>Pluggable everything</h3>
+      <p>Swap LLMs, embedders, retrievers, vector stores by editing a single YAML field. OpenAI, Anthropic, Mistral, Cohere, vLLM, AWS — all there.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">▣</div>
+      <h3>Production-ready</h3>
+      <p>FastAPI services, Docker images on GHCR (CPU + GPU), incremental state tracking, full CI, and a streaming HTTP index API.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">◎</div>
+      <h3>Live web search</h3>
+      <p>Augment local knowledge with iterative DuckDuckGo or Tavily lookups — automatically fused into RAG context.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PIPELINE ─── -->
+<section id="pipeline" class="pipeline">
+  <div class="container reveal">
+    <span class="section-label">Architecture</span>
+    <h2 class="section-title">Five stages. One CLI. Zero glue code.</h2>
+    <p class="section-sub">Every stage is independent, configurable via YAML, and composable. Run them locally, distributed, or as long-lived API services.</p>
+
+    <div class="pipe-row">
+      <div class="pipe-step">
+        <span class="icon">◰</span>
+        <div class="pipe-num">01 / Process</div>
+        <h4>Extract</h4>
+        <p>Pull text, metadata, images, and audio from any file or URL. Ten built-in processors, easy to extend.</p>
+      </div>
+      <div class="pipe-step">
+        <span class="icon">◳</span>
+        <div class="pipe-num">02 / Postprocess</div>
+        <h4>Refine</h4>
+        <p>Chunk, deduplicate, translate, and tag. Run NER over your corpus. Filter low-quality content.</p>
+      </div>
+      <div class="pipe-step">
+        <span class="icon">◫</span>
+        <div class="pipe-num">03 / Index</div>
+        <h4>Embed</h4>
+        <p>Build a hybrid Milvus index — dense + SPLADE sparse — locally or on a remote standalone instance.</p>
+      </div>
+      <div class="pipe-step">
+        <span class="icon">◐</span>
+        <div class="pipe-num">04 / Retrieve</div>
+        <h4>Search</h4>
+        <p>Hybrid retrieval with optional rerankers. Live HTTP API for streaming new docs into your store.</p>
+      </div>
+      <div class="pipe-step">
+        <span class="icon">◉</span>
+        <div class="pipe-num">05 / RAG</div>
+        <h4>Answer</h4>
+        <p>LangChain LCEL pipeline routes context to the LLM of your choice. Run as CLI, batch, or service.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CODE ─── -->
+<section id="quickstart" class="container reveal">
+  <div class="code-grid">
+    <div>
+      <span class="section-label">Quickstart</span>
+      <h2 class="section-title">From zero to answers in four commands.</h2>
+      <p>Install with <code style="color:var(--accent-2)">uv</code>, point at a folder of documents, and watch PolyDoc do the rest. Each stage writes structured JSONL so you can inspect and debug as you go.</p>
+      <ul>
+        <li>One CLI for the entire pipeline</li>
+        <li>YAML configs for every stage — version-controllable</li>
+        <li>Drop in a Python <code>Processor</code> subclass for new file types</li>
+        <li>Use it as a library, a CLI, or a long-lived API service</li>
+      </ul>
+    </div>
+    <div class="code-block">
+      <div class="code-head">
+        <span class="code-dot"></span>
+        <span class="code-dot"></span>
+        <span class="code-dot"></span>
+        <span class="code-title">~/your-project</span>
+      </div>
+      <div class="code-body">
+<code><span class="tk-cmt"># Install (CPU build)</span>
+$ uv pip install <span class="tk-str">"polydoc[all,cpu]"</span>
+
+<span class="tk-cmt"># 1. Extract from your files</span>
+$ polydoc <span class="tk-fn">process</span> <span class="tk-flag">-c</span> configs/process.yaml
+
+<span class="tk-cmt"># 2. Chunk, clean, tag</span>
+$ polydoc <span class="tk-fn">postprocess</span> <span class="tk-flag">-c</span> configs/post.yaml \
+    <span class="tk-flag">-i</span> outputs/merged/merged_results.jsonl
+
+<span class="tk-cmt"># 3. Build the hybrid index</span>
+$ polydoc <span class="tk-fn">index</span> <span class="tk-flag">-c</span> configs/index.yaml \
+    <span class="tk-flag">-f</span> outputs/post/results.jsonl
+
+<span class="tk-cmt"># 4. Ask a question</span>
+$ polydoc <span class="tk-fn">rag</span> <span class="tk-flag">-c</span> configs/rag.yaml
+
+<span class="tk-key">→ ✓</span> Answer grounded in 6 retrieved chunks.</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FORMATS ─── -->
+<section class="container reveal">
+  <span class="section-label">File support</span>
+  <h2 class="section-title">If it's a document, PolyDoc handles it.</h2>
+  <p class="section-sub">Out-of-the-box processors for the formats you actually have. No "convert to PDF first" workflows.</p>
+  <div class="formats">
+    <span class="format-pill">.pdf</span>
+    <span class="format-pill">.docx</span>
+    <span class="format-pill">.pptx</span>
+    <span class="format-pill">.xlsx</span>
+    <span class="format-pill">.md</span>
+    <span class="format-pill">.txt</span>
+    <span class="format-pill">.eml</span>
+    <span class="format-pill">.html</span>
+    <span class="format-pill">.mp4</span>
+    <span class="format-pill">.mov</span>
+    <span class="format-pill">.avi</span>
+    <span class="format-pill">.mkv</span>
+    <span class="format-pill">.mp3</span>
+    <span class="format-pill">.wav</span>
+    <span class="format-pill">.aac</span>
+    <span class="format-pill">URLs</span>
+    <span class="format-pill">+ your own</span>
+  </div>
+</section>
+
+<!-- ─── CTA ─── -->
+<section id="docs" class="container reveal">
+  <div class="cta-card">
+    <h2>Ready to ingest the world?</h2>
+    <p>Spin up PolyDoc with Docker, or install via uv and run your first RAG query in under five minutes.</p>
+    <div class="cta-row" style="justify-content:center;">
+      <a href="#" class="btn btn-primary">Read the docs →</a>
+      <a href="#" class="btn btn-ghost" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white;">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-col">
+        <div class="logo" style="margin-bottom:16px;">
+          <div class="logo-mark">P</div>
+          <span>PolyDoc</span>
+        </div>
+        <p style="max-width:340px; line-height:1.6;">Open-source, end-to-end multimodal RAG and document extraction. Built for engineers who need to put real documents into real systems.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="#features">Features</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#">Roadmap</a>
+      </div>
+      <div class="foot-col">
+        <h5>Resources</h5>
+        <a href="../README.md">README</a>
+        <a href="./index.md">Documentation</a>
+        <a href="../examples/">Examples</a>
+        <a href="./for_devs.md">Contributing</a>
+      </div>
+      <div class="foot-col">
+        <h5>Community</h5>
+        <a href="#">GitHub</a>
+        <a href="#">Discussions</a>
+        <a href="#">Issues</a>
+        <a href="#">Paper</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2025 PolyDoc — Apache 2.0 License</span>
+      <span>Built with care for the RAG community.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Reveal-on-scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

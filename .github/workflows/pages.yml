@@ -1,0 +1,57 @@
+name: Deploy landing page to GitHub Pages
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          # Root entry → redirect to landing.html
+          cp docs/landing.html _site/index.html
+          # Also publish the landing page at /landing.html for direct linking
+          cp docs/landing.html _site/landing.html
+          # Ship the static preview SVG so README image works on Pages too
+          cp docs/landing-preview.svg _site/landing-preview.svg
+          # Optional: ship the full docs directory under /docs for deep links
+          mkdir -p _site/docs
+          cp -r docs/* _site/docs/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

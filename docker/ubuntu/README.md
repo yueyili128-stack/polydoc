@@ -1,0 +1,47 @@
+# Ubuntu (default)
+
+Based on `ubuntu:22.04` (CPU) or `nvidia/cuda:12.6.3-base-ubuntu22.04` (GPU).
+
+> **Other base OS variants:** Dockerfiles for [Arch Linux](../arch/README.md) and [openSUSE Leap](../leap/README.md) are also available if you need a different base distribution.
+
+> **Pre-built images:** CPU and GPU images are automatically built and published to GHCR on every push to `master` via the CI workflow. Each image is a multi-platform manifest covering `linux/amd64` and `linux/arm64`. Pull them directly with:
+> ```bash
+> docker pull ghcr.io/yueyili128-stack/polydoc:edge-gpu
+> docker pull ghcr.io/yueyili128-stack/polydoc:edge-cpu
+> ```
+
+## Build
+
+> **Note:** The default target architecture matches the build host. Pass `--platform=<value>` to override:
+> - `linux/amd64` — x86_64 servers (e.g. RCP)
+> - `linux/arm64` — ARM64 machines (e.g. Apple Silicon)
+
+GPU (default):
+```bash
+sudo docker build -f docker/ubuntu/Dockerfile -t polydoc .
+```
+
+CPU-only:
+```bash
+sudo docker build -f docker/ubuntu/Dockerfile --build-arg DEVICE=cpu -t polydoc:cpu .
+```
+
+Custom extras (overrides the default `--extra all,cu126` or `--extra all,cpu`):
+```bash
+sudo docker build -f docker/ubuntu/Dockerfile --build-arg UV_OVERRIDE="--extra all,cu126" -t polydoc .
+```
+
+Custom user UID/GID (e.g. for RCP):
+```bash
+sudo docker build -f docker/ubuntu/Dockerfile --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -t polydoc .
+```
+
+## Run
+
+```bash
+# GPU
+sudo docker run --gpus all -it -v ./examples:/app/examples -v ./.cache:/polydocuser/.cache polydoc
+
+# CPU-only
+sudo docker run -it -v ./examples:/app/examples -v ./.cache:/polydocuser/.cache polydoc:cpu
+```
