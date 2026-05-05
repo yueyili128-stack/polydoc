@@ -19,9 +19,14 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 # Install system dependencies
+# Ubuntu 22.04 ships python3.10 by default; add the deadsnakes PPA to get 3.11.
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      python3.11 python3.11-venv python3-pip \
+      software-properties-common ca-certificates gnupg && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      python3.11 python3.11-venv python3.11-distutils python3-pip \
       tzdata nano curl ffmpeg libsm6 libxext6 libnss3 \
       libxi6 libxrandr2 libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxrender1 \
       libasound2 libatk1.0-0 libgtk-3-0 libreoffice libjpeg-dev libpango-1.0-0 \
