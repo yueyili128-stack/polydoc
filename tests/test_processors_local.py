@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from marker.output import MarkdownOutput
 
 from polydoc.process.processors.base import ProcessorConfig
@@ -201,29 +202,34 @@ def test_media_process_batch():
 
 
 # ------------------ PPTX Processor Tests ------------------
+_PPTX_SAMPLE = os.path.join(SAMPLES_DIR, "pptx", "ada.pptx")
+
+
+@pytest.mark.skipif(
+    not os.path.exists(_PPTX_SAMPLE),
+    reason=f"PPTX sample fixture missing: {_PPTX_SAMPLE}",
+)
 def test_pptx_process_standard():
-    sample_file = os.path.join(SAMPLES_DIR, "pptx", "ada.pptx")
-    # Assert that the file exists beforre attempting to process it
-    assert os.path.exists(sample_file), f"Sample file not found: {sample_file}"
     config = ProcessorConfig(custom_config={"output_path": "tmp"})
     processor = PPTXProcessor(config=config)
     # Process file
-    result = processor.process(sample_file)
+    result = processor.process(_PPTX_SAMPLE)
     assert result.text, "Text should not be empty"
     assert isinstance(result.modalities, list), "Modalities should be a list"
 
 
+@pytest.mark.skipif(
+    not os.path.exists(_PPTX_SAMPLE),
+    reason=f"PPTX sample fixture missing: {_PPTX_SAMPLE}",
+)
 def test_pptx_extract_notes():
     """
     Verify that PPTXProcessor correctly extracts slide notes.
     """
-    sample_file = os.path.join(SAMPLES_DIR, "pptx", "ada.pptx")
-    assert os.path.exists(sample_file), f"Sample file not found: {sample_file}"
-
     config = ProcessorConfig(custom_config={"output_path": "tmp"})
     processor = PPTXProcessor(config=config)
 
-    result = processor.process(sample_file)
+    result = processor.process(_PPTX_SAMPLE)
     # Combine the text segments for easy searching
     combined_text = (
         " ".join(result.text) if isinstance(result.text, list) else result.text

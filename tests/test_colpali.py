@@ -56,8 +56,10 @@ def test_colpali_embedder_embed_images():
 
     from polydoc.colpali import run_process
 
-    # Create temporary image files
-    with tempfile.TemporaryDirectory() as tmpdir:
+    # Create temporary image files. ignore_cleanup_errors=True so Windows
+    # file-lock quirks during teardown don't fail the test (PIL/embedder may
+    # still hold transient handles when the directory is being removed).
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
         image_paths = []
         for i in range(5):  # 5 images to test batch processing with batch_size=2
             img = Image.new("RGB", (100, 100), color=(i * 10, i * 20, i * 30))
@@ -545,7 +547,11 @@ def test_colpali_retriever_get_relevant_documents_with_text_map():
 # ------------------ Load Text Mapping Tests ------------------
 def test_load_text_mapping():
     """Test that load_text_mapping correctly loads text from parquet file."""
-    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp_file:
+    # Use mkstemp + immediate close so on Windows the file handle is released
+    # before pandas reopens the path for writing/reading and before unlink.
+    fd, tmp_path = tempfile.mkstemp(suffix=".parquet")
+    os.close(fd)
+    try:
         test_df = pd.DataFrame(
             {
                 "pdf_path": ["test1.pdf", "test2.pdf"],
@@ -553,16 +559,19 @@ def test_load_text_mapping():
                 "text": ["Page 1 text", "Page 2 text"],
             }
         )
-        test_df.to_parquet(tmp_file.name, index=False)
+        test_df.to_parquet(tmp_path, index=False)
 
+        text_map = load_text_mapping(tmp_path)
+
+        assert text_map is not None, "Text map should not be None"
+        assert ("test1.pdf", 1) in text_map, "Should contain first page mapping"
+        assert text_map[("test1.pdf", 1)] == "Page 1 text", "Text should match"
+    finally:
         try:
-            text_map = load_text_mapping(tmp_file.name)
-
-            assert text_map is not None, "Text map should not be None"
-            assert ("test1.pdf", 1) in text_map, "Should contain first page mapping"
-            assert text_map[("test1.pdf", 1)] == "Page 1 text", "Text should match"
-        finally:
-            os.unlink(tmp_file.name)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def test_load_text_mapping_not_found():

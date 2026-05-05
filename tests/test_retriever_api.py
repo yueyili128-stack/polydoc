@@ -22,7 +22,9 @@ def client(mock_retriever):
     fake_config = RetrieverConfig(collection_name="test_docs")
     with (
         patch("polydoc.run_retriever.load_config", return_value=fake_config),
-        patch("polydoc.run_retriever.Retriever.from_config", return_value=mock_retriever),
+        patch(
+            "polydoc.run_retriever.Retriever.from_config", return_value=mock_retriever
+        ),
     ):
         app = FastAPI()
         app.include_router(make_router("dummy_config.yaml"))
