@@ -18,16 +18,13 @@ ENV UV_ARGUMENTS=${UV_OVERRIDE:-$UV_ARGUMENTS}
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# Install system dependencies
-# Ubuntu 22.04 ships python3.10 by default; add the deadsnakes PPA to get 3.11.
+# Install system dependencies. Use the default python3 (3.10 on Ubuntu 22.04)
+# to keep the image small and avoid PPA-arm64 flakiness. The project supports
+# Python >= 3.10, so 3.10 is fine.
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      software-properties-common ca-certificates gnupg && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      python3.11 python3.11-venv python3.11-distutils python3-pip \
-      tzdata nano curl ffmpeg libsm6 libxext6 libnss3 \
+      python3 python3-venv python3-pip \
+      tzdata nano curl ca-certificates ffmpeg libsm6 libxext6 libnss3 \
       libxi6 libxrandr2 libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxrender1 \
       libasound2 libatk1.0-0 libgtk-3-0 libreoffice libjpeg-dev libpango-1.0-0 \
       libpangoft2-1.0-0 weasyprint && \
@@ -43,8 +40,8 @@ WORKDIR /app
 RUN chown polydocuser:polydocuser /app
 USER polydocuser
 
-# Set up Python virtual environment
-RUN python3.11 -m venv .venv \
+# Set up Python virtual environment using the default python3 (3.10 on 22.04)
+RUN python3 -m venv .venv \
  && .venv/bin/pip install --no-cache-dir uv
 
 # Install dependencies (cached unless uv.lock changes)
