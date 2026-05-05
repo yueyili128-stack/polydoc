@@ -54,7 +54,7 @@ jobs:
           context: .
           file: docker/ubuntu/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -108,7 +108,9 @@ jobs:
           context: .
           file: docker/ubuntu/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: cu126 wheels are not published for aarch64 by upstream
+          # PyTorch, and ML images are overwhelmingly used on x86 servers.
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
