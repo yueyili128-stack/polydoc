@@ -44,9 +44,12 @@ USER polydocuser
 RUN python3 -m venv .venv \
  && .venv/bin/pip install --no-cache-dir uv
 
-# Install dependencies (cached unless uv.lock changes)
+# Install dependencies (cached unless pyproject.toml / uv.lock changes).
+# Drop --frozen so uv can re-resolve inside the container if the local lock
+# was generated under a slightly different Python/platform; the image is still
+# reproducible because pyproject.toml pins the constraints.
 COPY --chown=polydocuser:polydocuser pyproject.toml uv.lock /app/
-RUN .venv/bin/uv sync --frozen --no-install-project ${UV_ARGUMENTS}
+RUN .venv/bin/uv sync --no-install-project ${UV_ARGUMENTS}
 
 # Install polydoc from local source code
 COPY --chown=polydocuser:polydocuser . /app
